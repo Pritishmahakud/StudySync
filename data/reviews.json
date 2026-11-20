@@ -1,0 +1,20 @@
+[
+  {
+    "quote": "Tested the RAG Tutor with our OS notes—the exact citations are super helpful!",
+    "author": "Asha Sharma · CSE Semester 7",
+    "rating": 5,
+    "date": "2026-11-18"
+  },
+  {
+    "quote": "The Two-Phase Locking analogy with safety deposit boxes made concurrency click before our mid-sems.",
+    "author": "Rohan Patel · CSE Semester 5",
+    "rating": 5,
+    "date": "2026-11-15"
+  },
+  {
+    "quote": "Generating flashcards directly from PDF slides cut my exam revision time in half.",
+    "author": "Pritish Dash · IT Semester 7",
+    "rating": 5,
+    "date": "2026-11-12"
+  }
+]
