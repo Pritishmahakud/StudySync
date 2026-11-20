@@ -10,6 +10,16 @@ frontend/out/
 build/
 dist/
 
+# User credentials, sessions, and private database files (SECURITY & PRIVACY)
+data/auth_store.json
+data/user_learning_store.json
+data/studysync.db
+data/events.jsonl
+data/quiz_results.csv
+*.db
+*.sqlite
+*.sqlite3
+
 # Python artifacts
 __pycache__/
 *.py[cod]
