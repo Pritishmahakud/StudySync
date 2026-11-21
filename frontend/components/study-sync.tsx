@@ -831,6 +831,33 @@ export function StudySync({ user }: { user: { name: string; email: string; major
               <Sparkles size={13} style={{ color: llmApiKey ? "#059669" : "#64748B" }} />
             </button>
 
+            {/* Direct Link to Python Multi-Agent Hub on Render */}
+            <a
+              href="https://studysync-x3ms.onrender.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open Python Multi-Agent Hub (Streamlit & Event-Driven Multi-Agent Swarm) on Render"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 13px",
+                borderRadius: "999px",
+                background: "#F0FDF4",
+                border: "1px solid #86EFAC",
+                color: "#166534",
+                fontSize: "12px",
+                fontWeight: 600,
+                textDecoration: "none",
+                transition: "all 0.15s ease",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
+              }}
+            >
+              <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#22C55E", display: "inline-block" }} />
+              <span>Python Hub</span>
+              <ExternalLink size={12} />
+            </a>
+
             {/* Top Right Dedicated Settings Button */}
             <button
               type="button"

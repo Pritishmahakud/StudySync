@@ -100,6 +100,19 @@ def run_dashboard():
     with st.sidebar:
         st.markdown("### 🎓 StudySync")
         st.caption("Personalized Adaptive Learning Platform")
+
+        st.markdown(
+            """
+            <div style="background: #F0FDF4; border: 1px solid #86EFAC; border-radius: 8px; padding: 10px 12px; margin-top: 6px; margin-bottom: 8px; text-align: center;">
+                <span style="font-size: 0.72rem; color: #166534; font-weight: 700; text-transform: uppercase;">Next.js Student Portal</span><br/>
+                <a href="https://study-sync-mu-tawny.vercel.app" target="_blank" style="text-decoration: none; color: #1B4D3E; font-weight: 700; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;">
+                    ✨ Open Modern Portal ↗
+                </a>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
         st.divider()
 
         llm = get_llm_provider()
