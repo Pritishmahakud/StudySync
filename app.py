@@ -49,10 +49,18 @@ handler = wsgi_application
 def _is_running_in_streamlit() -> bool:
     """Detect whether script is running inside active Streamlit server runtime."""
     try:
-        from streamlit.runtime.scriptrunner import get_script_run_context
+        # Modern Streamlit runtime check
+        if hasattr(st, "runtime") and hasattr(st.runtime, "exists") and st.runtime.exists():
+            return True
+    except Exception:
+        pass
+    try:
+        from streamlit.runtime.scriptrunner.script_run_context import get_script_run_context
         return get_script_run_context() is not None
     except Exception:
-        return False
+        pass
+    # Standard Streamlit runner executes app script as __main__
+    return __name__ == "__main__"
 
 
 def run_dashboard():
