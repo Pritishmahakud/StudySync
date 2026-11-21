@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getApiSession } from '@/lib/api-auth'
 import fs from 'fs'
 import path from 'path'
-import crypto from 'crypto'
+import { hashPassword, verifyPassword } from 'better-auth/crypto'
 
 const dataDir = path.resolve(process.cwd(), '..', 'data')
 const storeFile = path.join(dataDir, 'auth_store.json')
@@ -21,25 +21,12 @@ function writeAuthStore(store: any) {
     fs.writeFileSync(storeFile, JSON.stringify(store, null, 2), 'utf-8')
     const g = globalThis as any
     if (g.__studysync_db) {
-      g.__studysync_db = store
+      g.__studysync_db.user = store.user
+      g.__studysync_db.session = store.session
+      g.__studysync_db.account = store.account
+      g.__studysync_db.verification = store.verification
     }
   } catch {}
-}
-
-function verifyPassword(password: string, storedHash: string): boolean {
-  try {
-    const [salt, key] = storedHash.split(':')
-    const derived = crypto.scryptSync(password, salt, 64)
-    return derived.toString('hex') === key
-  } catch {
-    return false
-  }
-}
-
-function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16).toString('hex')
-  const derived = crypto.scryptSync(password, salt, 64)
-  return `${salt}:${derived.toString('hex')}`
 }
 
 export async function POST(req: NextRequest) {
@@ -63,7 +50,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: 'error', message: 'User account credential not found.' }, { status: 404 })
     }
 
-    if (!verifyPassword(currentPassword, account.password)) {
+    const isCurrentValid = await verifyPassword({ hash: account.password, password: currentPassword })
+    if (!isCurrentValid) {
       return NextResponse.json({ status: 'error', message: 'Current password does not match.' }, { status: 401 })
     }
 
@@ -86,7 +74,7 @@ export async function POST(req: NextRequest) {
       if (newPassword.length < 8) {
         return NextResponse.json({ status: 'error', message: 'New password must be at least 8 characters long.' }, { status: 400 })
       }
-      account.password = hashPassword(newPassword)
+      account.password = await hashPassword(newPassword)
       account.updatedAt = new Date().toISOString()
     }
 

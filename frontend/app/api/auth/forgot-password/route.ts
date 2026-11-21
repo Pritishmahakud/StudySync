@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
-import crypto from 'crypto'
+import { hashPassword } from 'better-auth/crypto'
 
 const dataDir = path.resolve(process.cwd(), '..', 'data')
 const storeFile = path.join(dataDir, 'auth_store.json')
@@ -20,15 +20,13 @@ function writeAuthStore(store: any) {
     fs.writeFileSync(storeFile, JSON.stringify(store, null, 2), 'utf-8')
     const g = globalThis as any
     if (g.__studysync_db) {
-      g.__studysync_db = store
+      // Mutate in-place so Better Auth's in-memory adapter immediately sees the new account records
+      g.__studysync_db.user = store.user
+      g.__studysync_db.session = store.session
+      g.__studysync_db.account = store.account
+      g.__studysync_db.verification = store.verification
     }
   } catch {}
-}
-
-function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16).toString('hex')
-  const derived = crypto.scryptSync(password, salt, 64)
-  return `${salt}:${derived.toString('hex')}`
 }
 
 export async function POST(req: NextRequest) {
@@ -99,8 +97,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'error', message: 'Account credential record not found.' }, { status: 404 })
       }
 
-      // Hash and update password
-      account.password = hashPassword(newPassword)
+      // Hash using Better Auth's standard algorithm (scrypt with N:16384, r:16, p:1, dkLen:64)
+      account.password = await hashPassword(newPassword)
       account.updatedAt = new Date().toISOString()
 
       // Clean up verification
