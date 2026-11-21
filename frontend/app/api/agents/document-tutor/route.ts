@@ -366,14 +366,14 @@ function synthesizeDocument(fileName: string, extractedText: string, pageCount: 
       {
         title: 'Module 2: Mechanistic Derivations & Algorithmic Execution',
         concepts: `This section traces the step-by-step algorithms and runtime dynamics detailed in ${fileName}. Evaluators evaluate step-by-step correctness, edge-case handling, and worst-case performance bounds.`,
-        keyFormulas: 'Complexity / Bound: \\( T(n) = O(V + E) \\quad \\text{or} \\quad O(n \\log n) \\)',
+        keyFormulas: 'Complexity / Bound: T(n) = O(V + E)  or  O(n log n)',
         examTakeaway: 'Draw the full state machine or sequence diagram to secure full 10/10 marks in long answer questions.',
         pitfalls: 'Skipping edge cases where input sequences contain null, cyclic, or out-of-order elements.'
       },
       {
         title: 'Module 3: Semester Exam Focus & High-Yield Solutions',
         concepts: `Synthesis of high-probability semester examination questions derived from this material. Master the trade-offs between space and time, consistency and availability, or throughput and latency.`,
-        keyFormulas: 'Trade-off Invariant: \\( \\text{Latency} \\propto \\frac{1}{\\text{Throughput}} \\)',
+        keyFormulas: 'Trade-off Invariant: Latency ∝ (1 / Throughput)',
         examTakeaway: 'Structure your answers using the 4-part framework: (1) Formal Definition, (2) Architecture/Block Diagram, (3) Mathematical Proof, (4) Practical Applications.',
         pitfalls: 'Writing long qualitative paragraphs without equations, diagrams, or formal definitions.'
       }

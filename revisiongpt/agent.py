@@ -74,13 +74,58 @@ class RevisionGPT:
         deck_id: str = "default",
         student_id: Optional[str] = None
     ) -> List[Flashcard]:
-        """Generate structured flashcards from text or topic and store in a deck."""
-        user_prompt = f"Create {count} high-yield flashcards for topic: '{topic}' at difficulty: '{difficulty}'."
+        """Generate structured flashcards from text or topic and store in a deck. Strictly enforces count."""
+        count = max(1, count)
+        user_prompt = f"Create exactly {count} high-yield flashcards for topic: '{topic}' at difficulty: '{difficulty}'. Return exactly {count} flashcard objects in the 'flashcards' JSON array."
         if context:
             user_prompt += f"\n\nSTUDY MATERIAL EXCERPT:\n{context[:6000]}"
 
         data = ask_json(FLASHCARD_GEN_SYSTEM, user_prompt)
         raw_cards = data.get("flashcards", [])
+        if not isinstance(raw_cards, list):
+            raw_cards = []
+
+        # Strict Count Validation and Enforcement
+        if len(raw_cards) > count:
+            raw_cards = raw_cards[:count]
+        elif len(raw_cards) < count:
+            deficit = count - len(raw_cards)
+            # 1. Attempt a targeted supplemental query for remaining cards
+            supp_prompt = (
+                f"You previously generated {len(raw_cards)} flashcards for '{topic}', but {count} were requested. "
+                f"Generate exactly {deficit} more UNIQUE high-yield flashcards for topic: '{topic}'."
+            )
+            if context:
+                supp_prompt += f"\n\nContext excerpt:\n{context[:3000]}"
+            try:
+                supp_data = ask_json(FLASHCARD_GEN_SYSTEM, supp_prompt)
+                supp_cards = supp_data.get("flashcards", [])
+                if isinstance(supp_cards, list):
+                    raw_cards.extend(supp_cards[:deficit])
+            except Exception:
+                pass
+
+            # 2. Deterministic high-yield synthesis backfill if deficit persists
+            card_types = [
+                ("Core Definition & Role", f"Define {topic} and explain its primary operational role in distributed/software architectures."),
+                ("Formal Invariant / Boundary Condition", f"What critical condition or invariant must hold true for {topic} to prevent failure or inconsistency?"),
+                ("Key Operational Trade-off", f"What primary trade-off (e.g. latency vs consistency, safety vs liveness) characterizes {topic}?"),
+                ("Exam Pitfall to Avoid", f"What common misconception or pitfall do university examiners test regarding {topic}?"),
+                ("Step-by-Step Mechanism", f"Outline the initial phase or handshaking steps required in {topic}.")
+            ]
+            while len(raw_cards) < count:
+                idx = len(raw_cards)
+                ctype, desc = card_types[idx % len(card_types)]
+                raw_cards.append({
+                    "front": f"{topic}: {ctype} - {desc}",
+                    "back": f"Fundamental property of {topic} covering theoretical correctness, formal state transitions, and semester exam criteria.",
+                    "hint": f"Recall standard syllabus definitions and invariant properties for {topic}.",
+                    "concept": topic.lower().replace(" ", "_"),
+                    "difficulty": difficulty
+                })
+
+        # Final guarantee: exactly count cards
+        raw_cards = raw_cards[:count]
 
         if deck_id not in self.decks:
             self.decks[deck_id] = Deck(

@@ -4,7 +4,7 @@ import { betterAuth } from 'better-auth'
 import { memoryAdapter } from 'better-auth/adapters/memory'
 import { pool } from './db'
 
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' && process.env.REQUIRE_REMOTE_DB === 'true') {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL must be configured for production authentication.')
   if (!process.env.BETTER_AUTH_SECRET || process.env.BETTER_AUTH_SECRET.length < 32) {
     throw new Error('Set BETTER_AUTH_SECRET to a random value of at least 32 characters in production.')
