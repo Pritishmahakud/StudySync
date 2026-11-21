@@ -3317,6 +3317,124 @@ console.log("\n✓ Binary search tests passed successfully.");`,
   const [output, setOutput] = useState("")
   const [sandboxStatus, setSandboxStatus] = useState<"ready" | "running" | "success" | "error">("ready")
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const lineGutterRef = useRef<HTMLDivElement>(null)
+
+  // Smart Indentation Keydown Handler (Tab, Shift+Tab, Enter Auto-Indent, Smart Backspace)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    // 1. Tab / Shift+Tab handling
+    if (e.key === "Tab") {
+      e.preventDefault()
+      const { selectionStart, selectionEnd, value } = textarea
+
+      if (e.shiftKey) {
+        // Shift+Tab: Unindent current line or selected block by up to 4 spaces
+        const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1
+        const lineEnd = value.indexOf("\n", selectionEnd) === -1 ? value.length : value.indexOf("\n", selectionEnd)
+        const selectedText = value.slice(lineStart, lineEnd)
+        const unindented = selectedText.replace(/^( {1,4}|\t)/gm, "")
+        const diff = selectedText.length - unindented.length
+        const newValue = value.slice(0, lineStart) + unindented + value.slice(lineEnd)
+        setCode(newValue)
+        setTimeout(() => {
+          textarea.selectionStart = Math.max(lineStart, selectionStart - (selectedText.startsWith(" ") ? 4 : 0))
+          textarea.selectionEnd = Math.max(lineStart, selectionEnd - diff)
+        }, 0)
+      } else {
+        // Tab: Insert 4 spaces or indent multi-line selection
+        if (selectionStart !== selectionEnd) {
+          const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1
+          const lineEnd = value.indexOf("\n", selectionEnd) === -1 ? value.length : value.indexOf("\n", selectionEnd)
+          const selectedText = value.slice(lineStart, lineEnd)
+          const indented = selectedText.replace(/^/gm, "    ")
+          const diff = indented.length - selectedText.length
+          const newValue = value.slice(0, lineStart) + indented + value.slice(lineEnd)
+          setCode(newValue)
+          setTimeout(() => {
+            textarea.selectionStart = selectionStart + 4
+            textarea.selectionEnd = selectionEnd + diff
+          }, 0)
+        } else {
+          // Single cursor: insert 4 spaces
+          const newValue = value.slice(0, selectionStart) + "    " + value.slice(selectionEnd)
+          setCode(newValue)
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = selectionStart + 4
+          }, 0)
+        }
+      }
+      return
+    }
+
+    // 2. Enter key: Auto-indentation to match previous line (+4 spaces if block header ends with ':')
+    if (e.key === "Enter") {
+      e.preventDefault()
+      const { selectionStart, selectionEnd, value } = textarea
+      const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1
+      const currentLine = value.slice(lineStart, selectionStart)
+
+      // Calculate leading whitespace indentation
+      const match = currentLine.match(/^(\s*)/)
+      let indent = match ? match[1] : ""
+
+      // If line ends with ':' (Python) or '{' (JavaScript), increase indent level by 4 spaces
+      const trimmedLine = currentLine.trim()
+      if (trimmedLine.endsWith(":") || (language === "JavaScript" && trimmedLine.endsWith("{"))) {
+        indent += "    "
+      }
+
+      const insertion = "\n" + indent
+      const newValue = value.slice(0, selectionStart) + insertion + value.slice(selectionEnd)
+      setCode(newValue)
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = selectionStart + insertion.length
+      }, 0)
+      return
+    }
+
+    // 3. Backspace: 4-space smart unindent
+    if (e.key === "Backspace" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      const { selectionStart, selectionEnd, value } = textarea
+      if (selectionStart === selectionEnd && selectionStart >= 4) {
+        const preceding = value.slice(selectionStart - 4, selectionStart)
+        if (preceding === "    ") {
+          const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1
+          const linePrefix = value.slice(lineStart, selectionStart)
+          if (/^\s+$/.test(linePrefix)) {
+            e.preventDefault()
+            const newValue = value.slice(0, selectionStart - 4) + value.slice(selectionEnd)
+            setCode(newValue)
+            setTimeout(() => {
+              textarea.selectionStart = textarea.selectionEnd = selectionStart - 4
+            }, 0)
+            return
+          }
+        }
+      }
+    }
+  }
+
+  // One-click Code Re-indenter / Formatter (normalizes all tabs to 4 spaces)
+  const autoFormatCode = () => {
+    const lines = code.split("\n")
+    const formatted = lines.map(line => line.replace(/\t/g, "    ").replace(/\s+$/, "")).join("\n")
+    setCode(formatted)
+    notify("Code indentation normalized to 4 spaces (PEP 8 standard).")
+  }
+
+  // Synchronize line gutter scrolling with textarea
+  const handleScroll = () => {
+    if (textareaRef.current && lineGutterRef.current) {
+      lineGutterRef.current.scrollTop = textareaRef.current.scrollTop
+    }
+  }
+
+  const lineCount = Math.max(1, code.split("\n").length)
+  const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1).join("\n")
+
   // Update starter code when language or problem changes
   const switchProblem = (key: string, lang: string) => {
     setSelectedProb(key)
@@ -3343,7 +3461,7 @@ console.log("\n✓ Binary search tests passed successfully.");`,
       const res = await fetch("/api/agents/code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code.trim(), language: language.toLowerCase() }),
+        body: JSON.stringify({ code: code, language: language.toLowerCase() }),
       })
       const data = await res.json()
 
@@ -3418,41 +3536,91 @@ console.log("\n✓ Binary search tests passed successfully.");`,
 
       <div className="ide-layout">
         <section className="editor-panel">
-          <div className="editor-toolbar">
-            <div className="editor-tabs">
+          <div className="editor-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="editor-tabs" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span className="editor-file">
                 <Code2 size={14} /> solution.{language === "Python" ? "py" : "js"}
               </span>
+              <button
+                type="button"
+                onClick={autoFormatCode}
+                title="Normalize indentation to 4 spaces (PEP 8)"
+                style={{
+                  background: "#1E293B",
+                  border: "1px solid #334155",
+                  color: "#94A3B8",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  padding: "3px 8px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  transition: "all 0.15s"
+                }}
+              >
+                <Sparkles size={11} /> Auto-Indent
+              </button>
             </div>
             <select aria-label="Programming language" value={language} onChange={e => handleLanguageChange(e.target.value)}>
               <option>Python</option>
               <option>JavaScript</option>
             </select>
           </div>
-          <div className="code-area" style={{ position: "relative", minHeight: "360px", background: "#0F172A", display: "flex" }}>
+          <div className="code-area" style={{ position: "relative", minHeight: "380px", background: "#0F172A", display: "flex", overflow: "hidden" }}>
+            {/* Synchronized Line Numbers Gutter */}
+            <div
+              ref={lineGutterRef}
+              style={{
+                width: "42px",
+                padding: "16px 8px 16px 0",
+                textAlign: "right",
+                color: "#475569",
+                fontFamily: "Consolas, Monaco, monospace",
+                fontSize: "13px",
+                lineHeight: "1.6",
+                userSelect: "none",
+                borderRight: "1px solid #1E293B",
+                background: "#090D1A",
+                overflowY: "hidden"
+              }}
+            >
+              <pre style={{ margin: 0, font: "inherit", color: "inherit" }}>{lineNumbers}</pre>
+            </div>
+
+            {/* Smart Indentation Code Textarea */}
             <textarea
+              ref={textareaRef}
               value={code}
               onChange={e => setCode(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onScroll={handleScroll}
               spellCheck={false}
               aria-label="Code Editor"
+              placeholder={`Write your ${language} algorithm here...\nPress Tab to indent 4 spaces, Shift+Tab to unindent, and Enter to auto-indent.`}
               style={{
-                width: "100%",
-                height: "360px",
+                flex: 1,
+                minHeight: "380px",
                 background: "transparent",
                 color: "#E2E8F0",
                 fontFamily: "Consolas, Monaco, monospace",
-                fontSize: "13.5px",
+                fontSize: "13px",
                 lineHeight: "1.6",
-                padding: "16px",
+                padding: "16px 14px",
                 border: "none",
                 outline: "none",
                 resize: "vertical",
-                tabSize: 4
+                tabSize: 4,
+                whiteSpace: "pre",
+                overflowX: "auto"
               }}
             />
           </div>
           <div className="editor-footer">
-            <span>{currentProb.tags}</span>
+            <span style={{ fontSize: "11.5px", color: "#64748B" }}>
+              {currentProb.tags} · Tab (4 spaces) &amp; Auto-Indent Active
+            </span>
             <button className="run-button" onClick={executeCode} disabled={running}>
               <Play size={13} fill="currentColor" /> {running ? "Compiling..." : "Run in Sandbox"}
             </button>
@@ -3460,20 +3628,57 @@ console.log("\n✓ Binary search tests passed successfully.");`,
         </section>
 
         <section className="terminal-panel">
-          <div className="terminal-header" style={{ display: "flex", justifyContent: "space-between" }}>
-            <span>TERMINAL OUTPUT</span>
+          <div className="terminal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>TERMINAL OUTPUT</span>
+              <span style={{
+                fontSize: "10px",
+                fontWeight: 700,
+                padding: "2px 7px",
+                borderRadius: "4px",
+                background: sandboxStatus === "error" ? "rgba(239,68,68,0.2)" : sandboxStatus === "success" ? "rgba(16,185,129,0.2)" : "rgba(148,163,184,0.15)",
+                color: sandboxStatus === "error" ? "#F87171" : sandboxStatus === "success" ? "#34D399" : "#94A3B8"
+              }}>
+                {sandboxStatus === "running" ? "EXECUTING..." : sandboxStatus === "success" ? "EXIT 0 (PASS)" : sandboxStatus === "error" ? "EXIT 1 (ERROR)" : "STANDBY"}
+              </span>
+            </div>
             {output && (
-              <button
-                type="button"
-                onClick={() => setOutput("")}
-                style={{ background: "none", border: "none", color: "#64748B", fontSize: "11px", cursor: "pointer" }}
-              >
-                Clear Output
-              </button>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(output)
+                    notify("Output copied to clipboard!")
+                  }}
+                  style={{ background: "none", border: "none", color: "#94A3B8", fontSize: "11px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "3px" }}
+                >
+                  <Copy size={11} /> Copy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOutput("")}
+                  style={{ background: "none", border: "none", color: "#64748B", fontSize: "11px", cursor: "pointer" }}
+                >
+                  Clear
+                </button>
+              </div>
             )}
           </div>
-          <div className="terminal-body" style={{ padding: "14px", fontFamily: "Consolas, Monaco, monospace", fontSize: "13px", color: sandboxStatus === "error" ? "#F87171" : "#10B981", background: "#0F172A", minHeight: "360px", whiteSpace: "pre-line" }}>
-            {output ? output : "Ready to compile and run. Edit the code above and click 'Run in Sandbox' to execute your algorithm against test cases."}
+          <div
+            className="terminal-body"
+            style={{
+              padding: "16px",
+              fontFamily: "Consolas, Monaco, monospace",
+              fontSize: "12.5px",
+              color: sandboxStatus === "error" ? "#F87171" : "#10B981",
+              background: "#0F172A",
+              minHeight: "380px",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              lineHeight: "1.65"
+            }}
+          >
+            {output ? output : "Ready to compile and run.\n\nEdit your code above (supports Tab 4-space indentation, Shift+Tab unindent, and Enter auto-indent) and click 'Run in Sandbox' to execute your algorithm against live test cases."}
           </div>
         </section>
       </div>

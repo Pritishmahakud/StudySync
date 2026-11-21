@@ -207,14 +207,18 @@ HANDLERS = {
 def main():
     parser = argparse.ArgumentParser(description="StudySync Multi-Agent Python Bridge")
     parser.add_argument("action", choices=list(HANDLERS.keys()), help="Action to execute")
-    parser.add_argument("--payload", type=str, default="{}", help="JSON payload string")
+    parser.add_argument("--payload", type=str, default=None, help="JSON payload string")
     args = parser.parse_args()
 
     try:
-        if args.payload.strip():
+        if args.payload and args.payload.strip():
             payload = json.loads(args.payload)
         else:
-            payload = json.load(sys.stdin)
+            raw_stdin = sys.stdin.read().strip()
+            if raw_stdin:
+                payload = json.loads(raw_stdin)
+            else:
+                payload = {}
     except Exception as e:
         print(json.dumps({"status": "error", "message": f"Invalid JSON payload: {e}"}))
         sys.exit(1)
